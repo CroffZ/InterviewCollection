@@ -9,7 +9,12 @@
 
 ### Collection和Collections
 * Collection是代表集合的接口，List、Set等集合接口都继承它（Map接口除外）。
-* Collections是工具类，提供了排序等很多实用方法。
+* Collections是工具类，提供了排序、同步等很多实用方法。
+    * 排序：`Collections.sort(Collection collection)`
+    * 同步List：`Collections.synchronizedList(List list)`
+    * 同步Map：`Collections.synchronizedMap(Map map)`
+    * 同步Set：`Collections.synchronizedSet(Set set)`
+* Collections的同步实现是指自身实现List／Map／Set的接口，然后在内部维护一个对应的List／Map／Set的实例，synchronized地调用这些实例来实现接口。
 
 ### Comparable和Comparator
 * Comparable接口：只包含一个`compareTo()`方法，这个方法可以个给两个对象排序。具体来说，它返回负数、0、正数来表明输入对象小于、等于、大于自身对象。
@@ -106,10 +111,14 @@ Map接口没有继承Collection接口，其中数据以无序键值对形式存�
 * HashMap的API调用流程：
     * 调用put方法时，HashMap先调用key对象的`hashCode()`来算出其Hash值，再到数组对应其Hash值的位置的链表里查找，如果entry不存在则会创建一个新的entry保存，而如果entry存在则使用`equals()`方法来比较二者是否相同，如果不同就会覆盖原来的entry。
     * 调用get方法时，HashMap先调用key对象的`hashCode()`来算出其Hash值，再到数组对应其Hash值的位置的链表里查找，使用`equals()`方法找出正确的entry并返回它的值。
-* HashMap的容量、负荷系数、阀值和rehash：HashMap默认的初始容量是32，负荷系数是0.75。阀值是为负荷系数乘以容量，无论何时我们尝试添加一个entry，如果map的大小比阀值大的时候，HashMap会对map的内容进行rehash，且使用更大的容量。容量总是2的幂。所以如果你预先知道需要存储大量的key-value对，比如缓存从数据库里面拉取的数据，应该使用正确的容量和负荷系数来初始化HashMap。
+* HashMap的容量、负荷系数、阀值和rehash
+    * HashMap默认的初始容量是32，负荷系数是0.75。HashMap的容量总是2的幂，因为这样才能使用与运算来计算元素下标：`hashcode & (length-1)`。
+    * 阀值是为负荷系数乘以容量，无论何时我们尝试添加一个entry，如果map的大小比阀值大的时候，HashMap会对map的内容进行rehash，使用更大的容量来存储。
+    * 所以如果预先知道需要存储大量的key-value对，比如缓存从数据库里面拉取的数据，应该使用正确的容量和负荷系数来初始化HashMap。
 * HashMap线程不安全的体现：
     * rehash死循环：Java中HashMap解决冲突的办法是用链表，在rehash的时候需要把链表转移，转移时会逆序，多线程情况下会导致单链表的死循环。
     * fail-fast机制：使用迭代器遍历HashMap过程中，如果有其他线程修改了HashMap，那么会抛出ConcurrentModificationException。
+* HashMap在JDK1.8中的优化：HashMap采用链表法解决冲突，但当冲突过多使得链表过长时（默认是链表长度大于8时），把链表换成红黑树。
 
 ### HashMap和HashTable
 * HashMap和HashTable都实现了Map接口，都是键值对保存数据的方式。
