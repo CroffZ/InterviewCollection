@@ -127,32 +127,31 @@ Java使用共享内存的方式实现多线程之间的消息传递。因此，�
     * 线程终结规则：Thread的线程对象t中所有的操作都先行发生于t的终止检测，包括t.join()方法返回、t.isAlive()==false等手段可以检测到t的终止；
     * 对象终结规则：一个对象的初始化完成happens-before它的finalize()方法的开始。
 
-### wait()／notify()
-```java
-object.wait();
-object.wait(long t);
-// 当前线程释放对象锁，进入等待队列。依靠其他线程调用该对象的notify()/notifyAll()唤醒或者t时间到自动唤醒。
+### 原子变量和原子操作
+* 原子性指的是一组操作必须一起完成，中途不能被中断。
+* Java中的原子操作包括：
+    * 对基本变量类型（除了double和long）的赋值。
+    * 对引用的赋值。
+    * 对java.concurrent.Atomic*所有类的操作。
+    * 对volatile的long和double变量的赋值。（内部synchronized）
+* 读写long和double变量不是原子的，而是需要分成两步（前32位和后32位）。如果一个线程正在修改该long或double变量的值，另一个线程可能只能看到该值的一半（前32位）。为了避免这种情况，需要在用volatile修饰long、double型成员变量。
 
-object.notify();
-// 唤醒在此对象监视器上等待的单个线程，选择是任意性的。
-object.notifyAll();
-// 唤醒在此对象监视器上等待的所有线程。
-```
-> wait()和notify()必须在synchronized的代码块中使用，因为只有在获取当前对象的锁时才能进行这两个操作，否则会报异常。
+#### UnSafe类
+* Unsafe类能直接原子性的、从硬件级别访问底层操作系统，但实际编码时是不能用的，否则会报异常。
+* Unsafe类的功能：
+    * 对象实例化：一般我们用new或者反射来实例化对象，Unsafe使用`allocateInstance()`方法可以直接生成对象实例，并且无需调用构造方法和其它初始化方法。
+    * 操作类、对象、变量：包括`staticFieldOffset`（静态域偏移）、`defineClass`（定义类）、`defineAnonymousClass`（定义匿名类）、`ensureClassInitialized`（确保类初始化）、`objectFieldOffset`（对象域偏移）等方法，通过这些方法我们可以获取对象的指针，通过对指针进行偏移，我们不仅可以直接修改指针指向的数据（即使它们是私有的），甚至可以找到JVM已经认定为垃圾、可以进行回收的对象。
+    * 操作数组：包括`arrayBaseOffset`（获取数组第一个元素的偏移地址）和`arrayIndexScale`（获取数组中元素的增量地址），二者配合使用就可以定位数组中每个元素在内存中的位置。
+    * CAS操作：Compare And Swap，比较替换操作是指令级别的操作，它为Java的锁机制提供了一种新的解决办法，比如AtomicXXX等类都是通过该方法来实现的。
+    * 线程挂起与恢复：通过`park`方法实现将一个线程进行挂起，调用后，线程将一直阻塞直到超时或者中断等条件出现。`unpark`可以终止一个挂起的线程，让其恢复正常。
 
-### Condition
-* Condition与ReentrantLock的关系就类似于synchronized与obj.wait()／obj.signal()。
-* con.await()方法会使当前线程等待，同时释放当前锁，当其他线程中使用con.signal()时或者con.signalAll()方法时，线程会重新获得锁并继续执行。或者当线程被中断时，也能跳出等待。
-* con.awaitUninterruptibly()方法与con.await()方法基本相同，但是它并不会再等待过程中响应中断。
-* con.singal()方法用于唤醒一个在等待中的线程，con.singalAll()方法会唤醒所有在等待中的线程。
+#### AtomicXXX类
+* 提供了一些原子性的操作，可以避免使用高代价的synchronized。
+* `set()`是原子性地修改value值；而`lazySet()`修改的值不会对其他线程立即可见，可以减少不必要的内存屏障，从而提高程序执行的效率。
+* `getAndSet()`是原子性地返回旧值，设置新值；`compareAndSet()`是原子性地比较，一致时替换并返回true，不一致时返回false。
+* CAS操作常常与自旋锁一起使用，是一种高效率的无锁算法。
 
 ### Java的锁机制
-
-#### 公平锁／非公平锁
-* 公平锁是指多个线程按照申请锁的顺序来获取锁。
-* 非公平锁是指多个线程获取锁的顺序并不是按照申请锁的顺序，有可能后申请的线程比先申请的线程优先获取锁。这样有可能会造成优先级反转或者饥饿现象。
-* 对于Java的ReentrantLock，可以通过构造函数指定该锁是否是公平锁，默认是非公平锁。非公平锁的优点在于吞吐量比公平锁大。
-* synchronized也是一种非公平锁，由于其并不像ReentrantLock是通过AQS的来实现线程调度，所以并没有任何办法使其变成公平锁。
 
 #### 可重入锁
 * 可重入锁又名递归锁，是指在同一个线程在外层方法获取锁之后，进入内层方法时也会自动获取锁，好处是可以一定程度上避免死锁。
@@ -182,10 +181,6 @@ synchronized void taskB() throws Exception {
 * Java的ReentrantLock和synchronized都是独享锁。但是Lock的另一个实现类ReadWriteLock的读锁是共享锁，写锁是独享锁。读锁的共享锁可保证并发读是非常高效的。
 * 独享锁与共享锁也是通过AQS来实现的，通过实现不同的方法，来实现独享或者共享。
 
-#### 互斥锁／读写锁
-* 上面讲的独享锁／共享锁就是一种广义的说法，互斥锁／读写锁就是具体的实现。
-* 在Java中，互斥锁的具体实现是ReentrantLock；读写锁的具体实现是ReadWriteLock。
-
 #### 乐观锁／悲观锁
 * 乐观锁与悲观锁不是指具体的什么类型的锁，而是指看待并发同步的角度。
 * 悲观锁认为对于同一个数据的并发操作，一定是会发生修改的，哪怕没有修改，也会认为修改。因此对于同一个数据的并发操作，悲观锁采取加锁的形式。悲观的认为，不加锁的并发操作一定会出问题。
@@ -193,18 +188,16 @@ synchronized void taskB() throws Exception {
 * 悲观锁适合写操作多的场景，乐观锁适合读操作多的场景。
 * 悲观锁在Java中的使用，就是利用各种锁；乐观锁在Java中的使用，是无锁编程，常常采用的是CAS算法，典型的例子就是原子类，通过CAS实现原子操作的更新。
 
-#### 分段锁
-* 分段锁其实是一种锁的设计，并不是具体的一种锁。
-* 对于ConcurrentHashMap而言，其并发的实现就是通过分段锁的形式来实现高效的并发操作。
-    * ConcurrentHashMap中的分段锁称为Segment，它即类似于HashMap的结构，即内部拥有一个Entry数组，数组中的每个元素又是一个链表；同时又是一个ReentrantLock（Segment继承了ReentrantLock)。
-    * 当需要put元素的时候，并不是对整个hashmap进行加锁，而是先通过hashcode来知道他要放在那一个分段中，然后对这个分段进行加锁，所以当多线程put的时候，只要不是放在一个分段中，就实现了真正的并行的插入。
-    * 但是，统计size的时候要获取HashMap全局信息的时候，需要获取所有的分段锁。
-* 分段锁的设计目的是细化锁的粒度。当操作不需要更新整个数组的时候，就仅仅针对数组中的部分进行加锁操作。
-
 #### 自旋锁
 * 如果持有锁的线程能在很短时间内释放锁资源，那么尝试获取锁的线程不会立即阻塞，而是采用循环的方式去尝试获取锁。
 * 好处：减少线程上下文（内核态和用户态）切换的消耗。
 * 缺点：循环会消耗CPU。
+
+#### 公平锁／非公平锁
+* 公平锁是指多个线程按照申请锁的顺序来获取锁。
+* 非公平锁是指多个线程获取锁的顺序并不是按照申请锁的顺序，有可能后申请的线程比先申请的线程优先获取锁。这样有可能会造成优先级反转或者饥饿现象。
+* 对于Java的ReentrantLock，可以通过构造函数指定该锁是否是公平锁，默认是非公平锁。非公平锁的优点在于吞吐量比公平锁大。
+* synchronized也是一种非公平锁，由于其并不像ReentrantLock是通过AQS的来实现线程调度，所以并没有任何办法使其变成公平锁。
 
 #### 偏向锁／轻量级锁／重量级锁
 * 这三种锁是指锁的状态，并且是针对synchronized的。在Java 1.5通过引入锁升级的机制来实现高效的synchronized。这三种锁的状态是通过对象监视器在对象头中的字段来表明的。
@@ -212,20 +205,28 @@ synchronized void taskB() throws Exception {
 * 轻量级锁是指：当锁是偏向锁的时候，被另一个线程所访问，偏向锁就会升级为轻量级锁，其他线程会通过自旋的形式尝试获取锁，不会阻塞，提高性能。
 * 重量级锁是指：当锁为轻量级锁的时候，另一个线程虽然是自旋，但自旋不会一直持续下去，当自旋一定次数的时候，还没有获取到锁，就会进入阻塞，该锁膨胀为重量级锁。重量级锁会让其他申请的线程进入阻塞，性能降低。
 
-### 原子变量和原子操作
-* 原子性指的是一组操作必须一起完成，中途不能被中断。
-* Java中的原子操作包括：
-    * 对基本变量类型（除了double和long）的赋值。
-    * 对引用的赋值。
-    * 对java.concurrent.Atomic*所有类的操作。
-    * 对volatile的long和double变量的赋值。（内部synchronized）
-* 在java.util.concurrent.atomic包中提供了创建了原子类型变量的工具类，使用这些类可以简化线程同步，包括：AtomicBoolean、AtomicInteger、AtomicIntegerArray等。
-* 读写long和double变量不是原子的，而是需要分成两步（前32位和后32位）。如果一个线程正在修改该long或double变量的值，另一个线程可能只能看到该值的一半（前32位）。为了避免这种情况，需要在用volatile修饰long、double型成员变量。
+### wait()／notify()
+```java
+object.wait();
+object.wait(long t);
+// 当前线程释放对象锁，进入等待队列。依靠其他线程调用该对象的notify()/notifyAll()唤醒或者t时间到自动唤醒。
+
+object.notify();
+// 唤醒在此对象监视器上等待的单个线程，选择是任意性的。
+object.notifyAll();
+// 唤醒在此对象监视器上等待的所有线程。
+```
+> wait()和notify()必须在synchronized的代码块中使用，因为只有在获取当前对象的锁时才能进行这两个操作，否则会报异常。
+
+### Condition
+* Condition与ReentrantLock的关系就类似于synchronized与obj.wait()／obj.signal()。
+* con.await()方法会使当前线程等待，同时释放当前锁，当其他线程中使用con.signal()时或者con.signalAll()方法时，线程会重新获得锁并继续执行。或者当线程被中断时，也能跳出等待。
+* con.awaitUninterruptibly()方法与con.await()方法基本相同，但是它并不会再等待过程中响应中断。
+* con.singal()方法用于唤醒一个在等待中的线程，con.singalAll()方法会唤醒所有在等待中的线程。
 
 ### ThreadLocal
 * 每一个使用ThreadLocal变量的线程都获得该变量的副本，副本之间相互独立，这样每一个线程都可以随意修改自己的变量副本，而不会对其他线程产生影响。
-* ThreadLocal类中维护一个Map，用于存储每一个线程的变量副本，Map中元素的键为线程对象，而值为对应线程的变量副本。
-* Spring中绝大部分Bean都可以声明成Singleton作用域，采用ThreadLocal进行封装，因此有状态的Bean就能够以Singleton的方式在多线程中正常工作了。
+* ThreadLocal类中维护一个ThreadLocalMap，用于存储每一个线程的变量副本，该Map中key为线程对象，而value为对应线程的变量副本。
 
 ### BlockingQueue
 ```java
