@@ -226,7 +226,10 @@ object.notifyAll();
 
 ### ThreadLocal
 * 每一个使用ThreadLocal变量的线程都获得该变量的副本，副本之间相互独立，这样每一个线程都可以随意修改自己的变量副本，而不会对其他线程产生影响。
-* ThreadLocal类中维护一个ThreadLocalMap，用于存储每一个线程的变量副本，该Map中key为线程对象，而value为对应线程的变量副本。
+* 每个线程Thread中都有一个ThreadLocal.ThreadLocalMap类型的成员变量threadLocals，用来存储本线程中的变量副本，键值为ThreadLocal变量，value为变量副本（即T类型的变量）。
+* 初始时，Thread里的threadLocals为null，当通过ThreadLocal变量调用get()方法或者set()方法时，会初始化Thread类中的threadLocals，再执行相应操作。
+* ThreadLocalMap的Entry继承了WeakReference<ThreadLocal>，是一个弱引用，在每次GC中都会回收，所以ThreadLocalMap实际上是一个WeakHashMap。
+* 在进行get之前，必须先set，否则会报空指针异常；如果想在get之前不需要调用set就能正常访问的话，必须重写initialValue()方法。
 
 ### BlockingQueue
 ```java
@@ -255,101 +258,55 @@ s.release();
 // 释放信号量资源，信号量的值+1，如果有等待的线程则通知它。
 ```
 
-## JVM同步机制——监视器Monitor
-* 三个部分：入口区、拥有区和等待区。入口区和等待区内可能有多个线程，但是任何时刻最多只有一个线程在拥有区。
-* 四种操作原语：
-    * 进入：线程进入入口区，准备获取监视器，此时如果没有别的线程拥有该监视器，则这个线程拥有此监视器，否则它要在入口区等待；
-    * 获取：在入口区和等待区的线程按照某种策略机制被选择可拥有该监视器时的操作；
-    * 拥有：线程在它拥有该监视器的时候排他地占有它，从而阻止其它线程的进入；
-    * 释放：拥有监视器的线程执行完监视器范围内的代码或异常退出之后，要释放掉它所拥有的此监视器。
-* 对临界区的调度原则：
-    * 无空等待：一次至多一个线程能够在临界区内；
-    * 有空让进：不能让一个线程无限地留在临界区；
-    * 择一而入：不能强迫一个线程无限地等待进入临界区；
-    * 算法可行：不能因所选的调度策略而造成线程的饥饿，甚至死锁。
-
 ## Java线程池
 
 ### Executor接口和ThreadPoolExecutor
 * 在Java中，线程池的概念是Executor这个接口，具体实现为ThreadPoolExecutor类。对线程池的配置，就是对ThreadPoolExecutor构造函数的参数的配置。
 
-```java
-// 五个参数的构造函数
-public ThreadPoolExecutor(int corePoolSize,
-                          int maximumPoolSize,
-                          long keepAliveTime,
-                          TimeUnit unit,
-                          BlockingQueue<Runnable> workQueue);
-                          
-// 六个参数的构造函数-1
-public ThreadPoolExecutor(int corePoolSize,
-                          int maximumPoolSize,
-                          long keepAliveTime,
-                          TimeUnit unit,
-                          BlockingQueue<Runnable> workQueue,
-                          ThreadFactory threadFactory);
+#### ThreadPoolExecutor构造函数的参数
+* `int corePoolSize`：核心线程数最大值；
+* `int maximumPoolSize`：线程总数最大值；
+* `long keepAliveTime`：非核心线程闲置最大时限；
+* `TimeUnit unit`：keepAliveTime的时间单位，包括天、小时、分、秒、毫秒、微秒、纳秒；
+* `BlockingQueue<Runnable> workQueue`：任务队列，维护等待执行的Runnable对象；
+* `ThreadFactory threadFactory`：线程工厂，用来定义创建线程的方式，一般用不到；
+* `RejectedExecutionHandler handler`：表示当拒绝处理任务时的策略，有以下四种取值：
+    * AbortPolicy：如果不能接受任务了，则抛出异常。
+    * CallerRunsPolicy：如果不能接受任务了，则让调用的线程去完成。
+    * DiscardOldestPolicy：如果不能接受任务了，则丢弃最老的一个任务，由一个队列来维护。
+    * DiscardPolicy：如果不能接受任务了，则丢弃任务。
 
-// 六个参数的构造函数-2
-public ThreadPoolExecutor(int corePoolSize,
-                          int maximumPoolSize,
-                          long keepAliveTime,
-                          TimeUnit unit,
-                          BlockingQueue<Runnable> workQueue,
-                          RejectedExecutionHandler handler);
+#### 线程池状态
+* 在ThreadPoolExecutor中定义了一个volatile变量`runState`来表示线程池当前的状态，包括`RUNNING`、`SHUTDOWN`、`STOP`和`TERMINATED`。
+    * `RUNNING`：创建线程池后，线程池处于RUNNING状态；
+    * `SHUTDOWN`：调用线程池的`shutdown()`方法后，线程池处于SHUTDOWN状态，此时线程池不能够接受新的任务，它会等待所有任务执行完毕；
+    * `STOP`：调用线程池的`shutdownNow()`方法后，线程池处于STOP状态，此时线程池不能接受新的任务，并且会去尝试终止正在执行的任务；
+    * `TERMINATED`：当线程池处于SHUTDOWN或STOP状态，并且所有工作线程已经销毁，任务缓存队列已经清空或执行结束后，线程池就处于TERMINATED状态。
 
-// 七个参数的构造函数
-public ThreadPoolExecutor(int corePoolSize,
-                          int maximumPoolSize,
-                          long keepAliveTime,
-                          TimeUnit unit,
-                          BlockingQueue<Runnable> workQueue,
-                          ThreadFactory threadFactory,
-                          RejectedExecutionHandler handler);
-```
-```
-使用ThreadPoolExecutor时，一般只使用5个参数的构造函数。
-```
+#### 任务的执行
+* 向ThreadPoolExecutor添加任务：通过`ThreadPoolExecutor.execute(Runnable command)`方法即可向线程池内添加一个任务。
+* ThreadPoolExecutor的执行策略：当一个任务被添加进线程池，分为两种情况：
+    * 线程数量未达到corePoolSize，则新建一个核心线程执行任务。
+    * 线程数量达到了corePoolSize，则将任务移入队列等待，分为两种情况：
+        * 队列已满，总线程数未达到maximumPoolSize，则新建非核心线程执行任务。
+        * 队列已满，总线程数达到了maximumPoolSize，就会抛出异常。
 
-* ThreadPoolExecutor构造函数的参数
-    * int corePoolSize => 核心线程数最大值
-    * int maximumPoolSize => 线程总数最大值
-    * long keepAliveTime => 非核心线程闲置超时时长
-    * TimeUnit unit => keepAliveTime的单位
-    * BlockingQueue<Runnable> workQueue => 任务队列：维护着等待执行的Runnable对象
-    * ThreadFactory threadFactory => 创建线程的方式，一般用不到
-    * RejectedExecutionHandler handler => 用来抛异常的，默认不需要指定
-
-### 核心线程
+#### 核心线程
 * 线程池新建线程的时候，如果当前线程总数小于corePoolSize，则新建的是核心线程，如果超过corePoolSize，则新建的是非核心线程。
-* 核心线程默认情况下会一直存活在线程池中，即使它啥也不干（闲置状态），但如果指定ThreadPoolExecutor的allowCoreThreadTimeOut这个属性为true，那么核心线程如果一直是闲置状态的话，超过一定时间就会被销毁掉。
+* 核心线程默认情况下会一直存活在线程池中，即使它一直闲置。但如果指定ThreadPoolExecutor的allowCoreThreadTimeOut这个属性为true，那么核心线程在闲置超过一定时间就会被销毁掉。
 
-### TimeUnit
-TimeUnit是一个枚举类型，包括如下值：
-
-* NANOSECONDS：1微毫秒 = 1微秒／1000
-* MICROSECONDS：1微秒 = 1毫秒／1000
-* MILLISECONDS：1毫秒 = 1秒／1000
-* SECONDS：秒
-* MINUTES：分
-* HOURS：小时
-* DAYS：天
-
-### workQueue等待队列
+#### workQueue等待队列的类型
 * SynchronousQueue：这个队列接收到任务的时候，会直接提交给线程处理，而不保留它，但如果所有线程都在工作时，会新建一个线程来处理这个任务。所以为了避免线程数达到了maximumPoolSize而不能新建线程的错误，使用这个类型队列时，maximumPoolSize一般指定成Integer.MAX_VALUE。
 * LinkedBlockingQueue：这个队列接收到任务的时候，如果当前线程数小于核心线程数，则新建一个核心线程处理任务；如果当前线程数等于核心线程数，则进入队列等待。由于这个队列没有最大值限制，即所有超过核心线程数的任务都将被添加到队列中，这也就导致了maximumPoolSize的设定失效，因为总线程数永远不会超过corePoolSize。
 * ArrayBlockingQueue：可以限定队列的长度，接收到任务的时候，如果没有达到corePoolSize的值，则新建一个核心线程执行任务，如果达到了，则入队等候，如果队列已满，则新建一个非核心线程执行任务，又如果总线程数到了maximumPoolSize，并且队列也满了，则发生错误。
 * DelayQueue：队列内元素必须实现Delayed接口，这就意味着你传进去的任务必须先实现Delayed接口。这个队列接收到任务时，首先先入队，只有达到了指定的延时时间，才会执行任务。
 
-### 向ThreadPoolExecutor添加任务
-通过`ThreadPoolExecutor.execute(Runnable command)`方法即可向线程池内添加一个任务。
-
-### ThreadPoolExecutor的执行策略
-当一个任务被添加进线程池时：
-
-* 线程数量未达到corePoolSize，则新建一个核心线程执行任务。
-* 线程数量达到了corePoolSize，则将任务移入队列等待：
-    * 队列已满，总线程数未达到maximumPoolSize，则新建非核心线程执行任务。
-    * 队列已满，总线程数达到了maximumPoolSize，就会抛出异常。
+#### 线程池的回调接口
+* 可以通过重写ThreadPoolExecutor的子类中的以下三个方法：
+    * `beforeExecute(Thread t, Runnable r);`
+    * `afterExecute(Runnable r, Throwable t);`
+    * `terminated();`
+* 来实现在线程执行前后，包括抛出异常时，还有线程池退出时的日志管理或其他操作。
 
 ### 常见的四种线程池
 
@@ -371,9 +328,9 @@ public static ExecutorService newCachedThreadPool() {
 
 ```java
 // 两种创建方法
-// nThreads => 最大线程数即maximumPoolSize
+// nThreads：最大线程数即maximumPoolSize
 ExecutorService fixedThreadPool = Executors.newFixedThreadPool(int nThreads);
-// threadFactory => 创建线程的方法
+// threadFactory：创建线程的方法
 ExecutorService fixedThreadPool = Executors.newFixedThreadPool(int nThreads, ThreadFactory threadFactory);
 
 // 源码
@@ -387,7 +344,7 @@ public static ExecutorService newFixedThreadPool(int nThreads) {
 
 ```java
 // 创建方法
-// nThreads => 最大线程数即maximumPoolSize
+// nThreads：最大线程数即maximumPoolSize
 ExecutorService scheduledThreadPool = Executors.newScheduledThreadPool(int corePoolSize);
 
 // 源码
@@ -412,21 +369,4 @@ public static ExecutorService newSingleThreadExecutor() {
         (new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>()));
 }
 ```
-
-### 线程池的扩展
-
-#### 回调接口
-* 我们可以通过实现ThreadPoolExecutor的子类去覆盖以下三个方法：
-    * `beforeExecute(Thread t, Runnable r);`
-    * `afterExecute(Runnable r, Throwable t);`
-    * `terminated();`
-* 从而来实现在线程执行前后，线程池退出时的日志管理或其他操作。
-
-#### 拒绝策略
-* 有时候，任务非常繁重，导致系统负载太大。在上面说过，当任务量越来越大时，任务都将放到FixedThreadPool的阻塞队列中，导致内存消耗太大，最终导致内存溢出。
-* 因此当我们发现线程数量要超过最大线程数量时，我们应该放弃一些任务，有四种放弃策略：
-    * AbortPolicy：如果不能接受任务了，则抛出异常。
-    * CallerRunsPolicy：如果不能接受任务了，则让调用的线程去完成。
-    * DiscardOldestPolicy：如果不能接受任务了，则丢弃最老的一个任务，由一个队列来维护。
-    * DiscardPolicy：如果不能接受任务了，则丢弃任务。
 
