@@ -21,46 +21,7 @@ Spring是一个轻量级的支持控制反转（IoC）、依赖注入（DI）和
 * setter注入：顾名思义，被注入的属性需要有set方法，支持简单类型和引用类型，是在Bean实例创建完成后执行的。
 * 构造方法注入：通过构造方法注入依赖，构造函数的参数一般情况下就是依赖项，也支持简单值类型和引用类型。
 
-### 自动装配（Auto-wiring）
-
-#### XML配置方式
-
-##### byType（根据类型）
-* 通过使用`<bean>`的`autowire`属性设置为"byType"来启动根据类型的自动装配。
-* Spring容器会基于反射查看Bean定义的类，然后找到与依赖类型相同的Bean注入，这个过程需要借助setter注入来完成，因此必须存在set方法，否则注入失败。
-* 可能存一种注入失败的情况：由于是基于类型的注入，因此当XML文件中存在多个相同类型名称不同的实例Bean时，存在多种适合的选项，Spring容器无法知道该注入那种，所以注入会失败，此时可以把`<bean>`标签的`autowire-candidate`属性设置为false来过滤那些不需要注入的实例Bean。
-
-##### byName（根据名称）
-* 通过使用`<bean>`的`autowire`属性设置为"byName"来启动根据名称的自动装配。
-* Spring会尝试将属性名与bean名称进行匹配，如果找到则注入依赖Bean。
-* 需要了解的是如果Spring容器中没有找到可以注入的实例bean时，将不会向依赖属性值注入任何Bean，这时依赖Bean的属性可能为null。
-
-##### constructor（根据构造函数）
-* 通过使用`<bean>`的`autowire`属性设置为"constructor"来启动根据构造函数的自动装配。
-* Spring容器同样会尝试找到那些类型与构造函数相同匹配的Bean然后注入。
-* 存在单个实例则优先按类型进行参数匹配（无论名称是否匹配），当存在多个类型相同实例时，按名称优先匹配，如果没有找到对应名称则注入失败，此时可以把`<bean>`标签的`autowire-candidate`属性设置为`false`来过滤那些不需要注入的实例Bean。
-
-#### 注解配置方式
-使用注解前必须先注册注解驱动：`<context:annotation-config />`。
-
-##### @Autowired
-* Spring2.5引入了`@Autowired`注释，它可以对类成员变量、方法及构造函数进行标注，完成自动装配的工作。
-* 通过`@Autowired`的使用标注到成员变量时不需要有set方法，默认按类型匹配。
-* 在`@Autowired`中还传递了一个`required`的属性，false表示该Bean不存在时可以不注入，此时它为null；而如果是true，就强制要求注入，若不存在则抛出异常。
-* 默认情况下`@Autowired`是按类型匹配的（byType），如果需要按名称（byName）匹配的话，可以使用`@Qualifier`注解与`@Autowired`结合。
-
-##### @Resource
-* 与`@Autowried`具备相同功效的还有`@Resource`，默认按byName模式自动注入，由J2EE提供，需导入`javax.annotation.Resource`包，可以标注在成员变量和set方法上，但无法标注构造函数。
-* `@Resource`有两个重要的属性：name和type，name属性解析为Bean的名字，type属性则解析为Bean的类型。因此，使用name属性则按byName模式自动注入，使用type属性则按byType模式自动注入。
-* 倘若既不指定name也不指定type属性，则默认按byName模式注入。
-
-##### @Value
-* 上述两种自动装配的依赖注入不适合简单值类型，如int、boolean、long、String以及Enum等，对于这些类型，Spring容器也提供了`@Value`注入的方式，常常与properties文件配合使用。
-* `@Value`接收一个String的值，该值指定了将要被注入到内置的java类型属性值，一般不需要类型转换，有如下两种方式：
-    * SpEL：`@Value("#{configProperties['jdbc.url']}")`
-    * 占位符：`@Value("${jdbc.url}")`
-
-### Spring的Bean
+### Bean
 
 #### Bean的实例化方法
 * 类的构造方法（最常用）
@@ -121,7 +82,7 @@ Spring是一个轻量级的支持控制反转（IoC）、依赖注入（DI）和
     * 从一个已创建的Bean引用另外一个Bean；
     * 显式地查找一个Bean。
 
-### 事务管理：面向切面编程（AOP）
+### 面向切面编程AOP
 AOP就是纵向的编程，如业务1和业务2都需要一个共同的操作，与其往每个业务中都添加同样的代码，不如写一遍代码，让两个业务共同使用这段代码。所以AOP把所有共有代码全部抽取出来，放置到某个地方集中管理，然后在具体运行时，再由容器动态织入这些共有代码。
 
 #### 相关概念
