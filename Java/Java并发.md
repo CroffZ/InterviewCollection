@@ -49,31 +49,26 @@ thread.run();
 // 在当前线程开始运行
 thread.start();
 // 在新的操作系统线程开始运行
-
 Thread.sleep(long ms);
 // 使当前线程进入阻塞，但不释放对象锁，一定时间后后线程自动苏醒进入Runnable状态。
-
 Thread.yield();
 // 使当前线程放弃获取的CPU时间片，由Running变为Runnable状态，让OS再次选择线程。用来让相同优先级的线程轮流执行，但并不保证一定会轮流执行，因为让步之后还可能被线程调度程序再次选中。
-
 thread.join();
 thread.join(long ms);
 // 当前线程阻塞，但不释放对象锁，直到线程thread执行完毕或者ms时间到，当前线程进入Runnable状态。
-
 thread.setDaemon(true);
 // 设置当前线程为thread的守护线程，意思是如果当前线程运行结束，则thread也会停止运行。
-
 thread.setPriority(Thread.MIN_PRIORITY);
 // 设置线程优先级，Thread类中有3个变量定义了线程优先级：
-public final static int MIN_PRIORITY = 1;
-public final static int NORM_PRIORITY = 5;
-public final static int MAX_PRIORITY = 10;
+// public final static int MIN_PRIORITY = 1;
+// public final static int NORM_PRIORITY = 5;
+// public final static int MAX_PRIORITY = 10;
 ```
 
 ## Java线程同步
 Java使用共享内存的方式实现多线程之间的消息传递。因此，程序员需要写额外的代码用于线程之间的同步。
 
-### synchronized方法和synchronized代码块
+### synchronized方法和代码块
 * 把任意一个非null的对象当作锁。
     * 作用于非静态方法时，锁住的是对象的实例（this）；
     * 当作用于静态方法时，锁住的是Class实例，又因为Class的相关数据存储在永久代（jdk1.8中是metaspace），永久代是全局共享的，因此静态方法锁相当于类的一个全局锁，会锁所有调用该方法的线程；
@@ -86,7 +81,7 @@ Java使用共享内存的方式实现多线程之间的消息传递。因此，�
     * 锁消除：即删除不必要的加锁操作。根据代码逃逸技术，如果判断到一段代码中，堆上的数据不会逃逸出当前线程，那么可以认为这段代码是线程安全的，不必要加锁。
     * 锁粗化：将多次连接在一起的加锁和解锁操作合并为一次，即将多个连续的锁改成一个大锁。
     * 自旋锁：当线程在获取轻量级锁的过程中执行CAS操作失败时，就通过自旋来获取重量级锁。
-    * 适应性自旋是指：线程如果自旋获取锁成功了，则下次自旋的循环次数会更多；而如果自旋获取锁失败了，则下次自旋的次数就会减少。
+    * 适应性自旋：线程如果自旋获取锁成功了，则下次自旋的循环次数会更多；而如果自旋获取锁失败了，则下次自旋的次数就会减少。
     * 偏向锁、轻量级锁、重量级锁：见Java的锁机制——偏向锁／轻量级锁／重量级锁。
 
 ### volatile（用于类的成员变量）
@@ -200,7 +195,7 @@ synchronized void taskB() throws Exception {
 * synchronized也是一种非公平锁，由于其并不像ReentrantLock是通过AQS的来实现线程调度，所以并没有任何办法使其变成公平锁。
 
 #### 偏向锁／轻量级锁／重量级锁
-* 这三种锁是指锁的状态，并且是针对synchronized的。在Java 1.5通过引入锁升级的机制来实现高效的synchronized。这三种锁的状态是通过对象监视器在对象头中的字段来表明的。
+* 这三种锁是指锁的状态，并且是针对synchronized的。在Java1.5通过引入锁升级的机制来实现高效的synchronized。这三种锁的状态是通过对象监视器在对象头中的字段来表明的。
 * 偏向锁是指：偏向于第一个访问锁的线程。如果在运行过程中，同步锁只有一个线程访问，不存在多线程争用的情况，则线程是不需要触发同步的，这种情况下，就会给线程加一个偏向锁。而如果在运行过程中，遇到了其他线程抢占锁，则持有偏向锁的线程会被挂起，JVM会消除它身上的偏向锁，将锁恢复到标准的轻量级锁。
 * 轻量级锁是指：当锁是偏向锁的时候，被另一个线程所访问，偏向锁就会升级为轻量级锁，其他线程会通过自旋的形式尝试获取锁，不会阻塞，提高性能。
 * 重量级锁是指：当锁为轻量级锁的时候，另一个线程虽然是自旋，但自旋不会一直持续下去，当自旋一定次数的时候，还没有获取到锁，就会进入阻塞，该锁膨胀为重量级锁。重量级锁会让其他申请的线程进入阻塞，性能降低。
@@ -210,13 +205,12 @@ synchronized void taskB() throws Exception {
 object.wait();
 object.wait(long t);
 // 当前线程释放对象锁，进入等待队列。依靠其他线程调用该对象的notify()/notifyAll()唤醒或者t时间到自动唤醒。
-
 object.notify();
 // 唤醒在此对象监视器上等待的单个线程，选择是任意性的。
 object.notifyAll();
 // 唤醒在此对象监视器上等待的所有线程。
 ```
-> wait()和notify()必须在synchronized的代码块中使用，因为只有在获取当前对象的锁时才能进行这两个操作，否则会报异常。
+wait()和notify()必须在synchronized的代码块中使用，因为只有在获取当前对象的锁时才能进行这两个操作，否则会报异常。
 
 ### Condition
 * Condition与ReentrantLock的关系就类似于synchronized与obj.wait()／obj.signal()。

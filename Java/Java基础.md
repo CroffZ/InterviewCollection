@@ -6,21 +6,16 @@
 * 继承：从父类继承指定的属性和方法，提供了代码的重用行，也可以在不修改类的情况下给现存的类添加新特性。
 * 多态：简单来说就是用同样的对象引用调用同样的方法但是做了不同的事情，分为编译时的多态性和运行时的多态性。方法重载（Overloading）实现的是编译时的多态性；方法重写（Overriding）实现的是运行时的多态性。
 
-## 方法重载（Overloading）和方法重写（Overriding）
+### 方法重载（Overloading）和方法重写（Overriding）
 * 方法重载（Overloading）：发生在同一个类里面两个或者是多个方法的方法名相同但是参数不同的情况。
 * 方法重写（Overriding）：是说子类重新定义了父类的方法。方法覆盖必须有相同的方法名，参数列表和返回类型。
 
-## JDK、JRE、JVM
-* JDK（Java Development Kit）：Java开发工具包，包括JRE、编译器和其他的工具（如JavaDoc和Java调试器），可以让开发者开发、编译、执行Java应用程序。
-* JRE（Java Runtime Environment）：Java运行环境，包括Java虚拟机和执行Applet需要的浏览器插件。
-* JVM（Java Virtual Machine）：Java虚拟机，是一个可以执行Java字节码的虚拟机进程，它知道底层硬件平台的指令长度和其他特性，所以Java拥有跨平台特性。
-
-## static关键字
+### static关键字
 * static关键字表示一个成员变量或成员方法可以在没有所属的类的实例变量的情况下被访问。
 * static方法不能被覆盖，因为方法覆盖是基于运行时动态绑定的，而static方法是编译时静态绑定的，所以static方法跟类的任何实例都不相关。
 * static变量也称为类变量，它属于类，不属于类的任何一个实例对象，因此一个类不管创建多少个对象，静态变量在内存中有且仅有一个拷贝。当类被Java虚拟机载入的时候，会对static变量进行初始化。
 
-## 类的实例化顺序
+### 类的实例化顺序
 1. 父类static变量、代码块
 2. 子类static变量、代码块
 3. 父类非static成员变量
@@ -28,21 +23,12 @@
 5. 父类构造方法
 6. 子类构造方法
 
-## Java的数据类型
-* Java中的数据类型有三种：基本类型（Primitive Type）、枚举类型（Enumeration Type）和引用类型（Reference Type）。基本数据类型有八种：byte、short、int、long、float、double、boolean、char。
-* 自动拆／装箱：Java编译器在基本数据类型和对应的对象包装类型之间做的一个转化。比如：自动装箱是把int转化成Integer，double转化成Double，等等。反之就是自动拆箱。
-* String不是基本数据类型，它由final修饰，所以也不能被继承。
-* char类型可以存储一个中文汉字，因为Java中使用的编码是Unicode，一个char类型占2个字节，所以放一个中文是没问题的。
-
-## String为什么是不可变类
-* String类是final的，它的主力成员字段value也是一个final的char[]，因此String创建之后就不能再修改。
-* 字符串放进常量池存储可以节省很多堆空间，而只有字符串是不可变的时候，才能把字符串放进常量池，因为如果字符串改变了值，其他所有指向该字符串的值都会改变。
-* 字符串创建的时候，它的HashCode就被缓存了，不需要重新计算，所以它很适合作为Map中的key，同理其他不可变类如Integer也同样适合用作Map中的key。
-* 不可变意味着字符串是线程安全的，可以避免使用同步，而且也可以避免其他安全问题，因为字符串常常被当作很多重要参数，如URL、文件路径，还有反射机制需要的字符串参数等，如果字符串可变的话会存在安全隐患，比如在一个线程内已经检查过字符串的值后准备拿来用了，但另一个线程在用之前把它改掉了，会导致安全问题。
-
-## String、StringBuilder和StringBuffer
-* 每次操作字符串，String会产生一个新的对象，而StringBuilder和StringBuffer不会。这是因为String中的char数组是final的，不可修改；而StringBuilder和StringBuffer中的char数组不是final的，可以修改。
-* StringBuffer是线程安全的（使用synchronized），而StringBuilder不是。
+### 抽象类和接口
+* 接口中所有方法都是抽象的，而抽象类可以同时包含抽象和非抽象的方法。
+* 类可以实现很多个接口，但是只能继承一个抽象类。
+* 类如果要实现一个接口，它必须要实现接口声明的所有方法，但是类可以不实现抽象类声明的所有方法而声明成是抽象的。
+* 接口中变量默认是final的，抽象类可以包含非final的变量。
+* 接口中成员函数默认是public的，抽象类的成员函数可以是private、protected或public。
 
 ## 访问权限修饰符
 | 修饰符 | 当前类 | 同包类 | 子类 | 所有类 |
@@ -52,12 +38,30 @@
 | default | 可以访问 | 可以访问 | 不能访问 | 不能访问 |
 | private | 可以访问 | 不能访问 | 不能访问 | 不能访问 |
 
-## 抽象类和接口
-* 接口中所有方法都是抽象的，而抽象类可以同时包含抽象和非抽象的方法。
-* 类可以实现很多个接口，但是只能继承一个抽象类。
-* 类如果要实现一个接口，它必须要实现接口声明的所有方法，但是类可以不实现抽象类声明的所有方法而声明成是抽象的。
-* 接口中变量默认是final的，抽象类可以包含非final的变量。
-* 接口中成员函数默认是public的，抽象类的成员函数可以是private、protected或public。
+## Java的数据类型
+* Java中的数据类型有三种：基本类型（Primitive Type）、枚举类型（Enumeration Type）和引用类型（Reference Type）。
+* 自动拆／装箱：Java编译器在基本数据类型和对应的对象包装类型之间做的一个转化。比如：自动装箱是把int转化成Integer，double转化成Double，等等。反之就是自动拆箱。
+* String不是基本数据类型，它由final修饰，所以也不能被继承。
+* char类型可以存储一个中文汉字，因为Java中使用的编码是Unicode。
+
+### 基本数据类型
+| byte | char | short | int | float | double | long |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 8bits | 8bits | 16bits | 32bits | 32bits | 64bits | 64bits |
+
+* boolean可以使用1bit来存储，但是具体大小没有明确规定。
+* JVM在编译时将boolean类型的数据转换为int，1表示true，0表示false。
+* boolean数组是通过读写byte数组实现的。
+
+### String为什么是不可变类
+* String类是final的，它的主力成员字段value也是一个final的char[]，因此String创建之后就不能再修改。
+* 字符串放进常量池存储可以节省很多堆空间，但这样做要求字符串不可变，因为如果存在常量池中字符串的值改变了，那么其他所有指向该字符串的值都会改变。
+* 字符串创建的时候，它的HashCode就被缓存了，不需要重新计算，所以它很适合作为Map中的key，同理其他不可变类如Integer也同样适合用作Map中的key。
+* 不可变意味着字符串是线程安全的，可以避免使用同步，而且也可以避免其他安全问题，因为字符串常常被当作很多重要参数，如URL、文件路径，还有反射机制需要的字符串参数等，如果字符串可变的话会存在安全隐患，比如在一个线程内已经检查过字符串的值后准备拿来用了，但另一个线程在用之前把它改掉了，会导致安全问题。
+
+### String、StringBuilder和StringBuffer
+* 每次操作字符串，String会产生一个新的对象，而StringBuilder和StringBuffer不会。这是因为String中的char数组是final的，不可修改；而StringBuilder和StringBuffer中的char数组不是final的，可以修改。
+* StringBuffer是线程安全的（使用synchronized关键字），而StringBuilder不是。
 
 ## 值传递和引用传递
 * 对象被值传递，意味着传递了对象的一个副本。因此，就算是改变了对象副本，也不会影响源对象的值。

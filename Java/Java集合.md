@@ -109,7 +109,7 @@ Map接口没有继承Collection接口，其中数据以无序键值对形式存�
 ### HashMap
 * HashMap在静态内部类Map.Entry中存储key-value对，使用每个对象的`hashCode()`和`equals()`方法计算其对应Hash值，解决冲突的方法是链表探测法，用LinkedList实现。
 * HashMap的API调用流程：
-    * 调用put方法时，HashMap先调用key对象的`hashCode()`来算出其Hash值，再到数组对应其Hash值的位置的链表里查找，如果entry不存在则会创建一个新的entry保存，而如果entry存在则使用`equals()`方法来比较二者是否相同，如果不同就会覆盖原来的entry。
+    * 调用put方法时，HashMap先调用key对象的`hashCode()`来算出其Hash值，再到数组对应其Hash值的位置的链表里使用`equals()`方法查找该entry是否已存在，如果不存在则会创建一个新的entry来保存。
     * 调用get方法时，HashMap先调用key对象的`hashCode()`来算出其Hash值，再到数组对应其Hash值的位置的链表里查找，使用`equals()`方法找出正确的entry并返回它的值。
 * HashMap的容量、负荷系数、阀值和rehash
     * HashMap默认的初始容量是32，负荷系数是0.75。HashMap的容量总是2的幂，因为这样才能使用与运算来计算元素下标：`hashcode & (length-1)`。
